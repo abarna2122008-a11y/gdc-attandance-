@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game Development Club Attendance</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero-band" aria-labelledby="app-title">
+        <div class="hero-copy">
+          <p class="eyebrow">Game Development Club</p>
+          <h1 id="app-title">Attendance Control Room</h1>
+          <p class="hero-note">
+            Start a weekly meeting, mark members present from one device, then close the session and launch warning mails for absentees.
+          </p>
+        </div>
+        <div class="signal-panel" aria-label="Meeting presence signal">
+          <div class="signal-core">
+            <span id="signalPresent">0</span>
+            <small>present</small>
+          </div>
+          <div class="signal-ring ring-one"></div>
+          <div class="signal-ring ring-two"></div>
+          <div class="signal-ring ring-three"></div>
+        </div>
+        
+        <!-- QR Code Self Check-in Section -->
+        <div id="selfCheckinSection" class="self-checkin-section" style="display: none;">
+          <div id="qrCodeContainer" class="qr-code-container">
+            <div id="qrCodeCanvas" class="qr-code-canvas"></div>
+            <p id="qrCodeToken" class="qr-code-token"></p>
+            <button id="qrRefreshBtn" class="ghost-action" type="button">Refresh QR Code</button>
+            <p class="qr-hint">Share this QR code with members for self check-in</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="status-strip" aria-label="Meeting status">
+        <div>
+          <span class="metric-label">Meeting</span>
+          <strong id="meetingState">Not started</strong>
+        </div>
+        <div>
+          <span class="metric-label">Members</span>
+          <strong id="memberCount">0</strong>
+        </div>
+        <div>
+          <span class="metric-label">Present</span>
+          <strong id="presentCount">0</strong>
+        </div>
+        <div>
+          <span class="metric-label">Absent</span>
+          <strong id="absentCount">0</strong>
+        </div>
+      </section>
+
+      <section class="mail-launcher" aria-labelledby="mailLauncherTitle">
+        <div class="launcher-copy">
+          <p class="section-kicker">Auto Mail Engine</p>
+          <h2 id="mailLauncherTitle">Warning mails launch when the meeting closes.</h2>
+          <p id="mailStatusText">Checking the local mail server...</p>
+        </div>
+        <div class="launcher-board">
+          <div class="launcher-track" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div>
+            <span class="metric-label">Mode</span>
+            <strong id="mailMode">Draft fallback</strong>
+          </div>
+          <div>
+            <span class="metric-label">Sender</span>
+            <strong id="mailSender">Not connected</strong>
+          </div>
+          <button id="checkMailButton" class="ghost-action" type="button">Check Mail Server</button>
+          <button id="testMailButton" class="ghost-action" type="button">Test Sender</button>
+        </div>
+        <form id="mailSetupForm" class="mail-setup">
+          <label>
+            SMTP host
+            <input id="smtpHost" type="text" placeholder="smtp.gmail.com" autocomplete="off" />
+          </label>
+          <label>
+            Port
+            <input id="smtpPort" type="number" min="1" max="65535" placeholder="587" />
+          </label>
+          <label class="toggle-label">
+            <input id="smtpSecure" type="checkbox" />
+            SSL 465
+          </label>
+          <label>
+            Sender email
+            <input id="smtpUser" type="email" placeholder="club@example.com" autocomplete="off" />
+          </label>
+          <label>
+            App password
+            <input id="smtpPass" type="password" placeholder="App password" autocomplete="new-password" />
+          </label>
+          <label>
+            From name
+            <input id="smtpFromName" type="text" placeholder="Game Development Club" autocomplete="off" />
+          </label>
+          <label>
+            Reply-to
+            <input id="smtpReplyTo" type="email" placeholder="club@example.com" autocomplete="off" />
+          </label>
+          <button class="secondary-action" type="submit">Save Sender</button>
+          <p class="smtp-hint">Use port 587 for Gmail. SSL is only for port 465.</p>
+          <p id="mailSetupMessage" class="message-line" role="status"></p>
+        </form>
+      </section>
+
+      <section class="workspace-grid">
+        <div class="panel meeting-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">01</p>
+              <h2>Meeting Gate</h2>
+            </div>
+            <span id="liveBadge" class="live-badge">Idle</span>
+          </div>
+          <form id="meetingForm" class="form-grid">
+            <label>
+              Meeting title
+              <input id="meetingTitle" type="text" placeholder="Weekly sprint sync" autocomplete="off" />
+            </label>
+            <label>
+              Meeting date
+              <input id="meetingDate" type="date" />
+            </label>
+            <button id="startMeetingButton" class="primary-action" type="submit">
+              Start Meeting
+            </button>
+          </form>
+          <button id="closeMeetingButton" class="danger-action" type="button" disabled>
+            Close Meeting & Send Warnings
+          </button>
+          <p id="meetingMessage" class="message-line" role="status"></p>
+        </div>
+
+        <!-- Gamification Panel -->
+        <div class="panel gamification-panel" id="gamificationSection">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">🏆</p>
+              <h2>Leaderboard</h2>
+            </div>
+          </div>
+          <div id="leaderboardList" class="leaderboard-list"></div>
+          <div class="panel-heading" style="margin-top: 20px;">
+            <div>
+              <p class="section-kicker">🏅</p>
+              <h2>Achievement Badges</h2>
+            </div>
+          </div>
+          <div id="badgesList" class="badges-list"></div>
+        </div>
+
+        <div class="panel mark-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">02</p>
+              <h2>Presence Check</h2>
+            </div>
+            <button id="clearLookupButton" class="icon-button" type="button" aria-label="Clear attendance inputs" title="Clear inputs">
+              X
+            </button>
+          </div>
+          <form id="attendanceForm" class="attendance-form">
+            <label>
+              Member email
+              <input id="attendanceEmail" type="email" placeholder="member@example.com" autocomplete="off" />
+            </label>
+            <span class="or-chip">or</span>
+            <label>
+              Member name
+              <input id="attendanceName" type="text" placeholder="Full name" autocomplete="off" />
+            </label>
+            <button class="primary-action" type="submit">Mark Present</button>
+          </form>
+          <p id="attendanceMessage" class="message-line" role="status"></p>
+        </div>
+
+        <div class="panel member-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">03</p>
+              <h2>Member Vault</h2>
+            </div>
+            <button id="exportButton" class="ghost-action" type="button">Export</button>
+          </div>
+          <form id="memberForm" class="member-form">
+            <label>
+              Name
+              <input id="memberName" type="text" placeholder="Member full name" autocomplete="off" required />
+            </label>
+            <label>
+              Email
+              <input id="memberEmail" type="email" placeholder="member@example.com" autocomplete="off" required />
+            </label>
+            <label>
+              Team
+              <select id="memberTeam" class="team-select">
+                <option value="default">General</option>
+              </select>
+            </label>
+            <button class="secondary-action" type="submit">Save Member</button>
+          </form>
+          <div class="member-tools">
+            <button id="seedButton" class="ghost-action" type="button">Load 15 Placeholders</button>
+            <button id="clearMembersButton" class="text-action" type="button">Clear Members</button>
+          </div>
+          <div id="memberList" class="member-list" aria-live="polite"></div>
+        </div>
+
+        <div class="panel roster-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">04</p>
+              <h2>Live Roster</h2>
+            </div>
+            <span id="rosterMode" class="small-pill">Locked</span>
+          </div>
+          <div id="rosterList" class="roster-list" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="output-band" aria-labelledby="warningTitle">
+        <div class="output-header">
+          <div>
+            <p class="section-kicker">05</p>
+            <h2 id="warningTitle">Mail Launch Deck</h2>
+          </div>
+          <button id="copyReportButton" class="ghost-action" type="button" disabled>Copy Report</button>
+        </div>
+        <div id="warningDeck" class="warning-deck">
+          <p class="empty-state">Close a meeting to launch absence warnings here.</p>
+        </div>
+      </section>
+
+      <!-- Team Management Section -->
+      <section class="team-band" aria-labelledby="teamTitle">
+        <div class="output-header">
+          <div>
+            <p class="section-kicker">Teams</p>
+            <h2 id="teamTitle">Team Management</h2>
+          </div>
+          <button id="addTeamBtn" class="ghost-action" type="button">+ Add Team</button>
+        </div>
+        <div class="team-controls">
+          <label>
+            Filter by Team
+            <select id="teamFilter" class="team-filter">
+              <option value="all">All Teams</option>
+            </select>
+          </label>
+        </div>
+        <div id="teamList" class="team-list"></div>
+      </section>
+
+      <!-- Analytics Dashboard -->
+      <section class="stats-band" id="statsSection" aria-labelledby="statsTitle">
+        <div class="output-header">
+          <div>
+            <p class="section-kicker">📊</p>
+            <h2 id="statsTitle">Attendance Analytics</h2>
+          </div>
+        </div>
+        <div id="attendanceChart" class="attendance-chart"></div>
+      </section>
+
+      <section class="history-band" aria-labelledby="historyTitle">
+        <div class="output-header">
+          <div>
+            <p class="section-kicker">Archive</p>
+            <h2 id="historyTitle">Meeting History</h2>
+          </div>
+          <button id="clearHistoryButton" class="text-action" type="button">Clear History</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </section>
+    </main>
+
+    <template id="memberTemplate">
+      <article class="member-row">
+        <div>
+          <strong></strong>
+          <span></span>
+        </div>
+        <button type="button" class="icon-button" aria-label="Remove member" title="Remove member">X</button>
+      </article>
+    </template>
+
+    <template id="rosterTemplate">
+      <article class="roster-row">
+        <div class="roster-status-dot"></div>
+        <div>
+          <strong></strong>
+          <span></span>
+        </div>
+        <button type="button" class="ghost-action">Mark</button>
+      </article>
+    </template>
+
+    <template id="warningTemplate">
+      <article class="warning-card">
+        <div class="warning-card-head">
+          <div>
+            <p class="section-kicker">Absent Member</p>
+            <h3></h3>
+            <span class="warning-email"></span>
+          </div>
+          <span class="send-state"></span>
+        </div>
+        <textarea readonly></textarea>
+        <div class="warning-actions">
+          <a class="secondary-action" target="_blank" rel="noreferrer">Open Draft</a>
+          <button class="ghost-action" type="button">Copy Mail</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
