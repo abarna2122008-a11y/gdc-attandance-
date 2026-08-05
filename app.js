@@ -58,6 +58,7 @@ const els = {
   mailStatusText: document.querySelector("#mailStatusText"),
   mailMode: document.querySelector("#mailMode"),
   mailSender: document.querySelector("#mailSender"),
+  mailSettingsToggle: document.querySelector("#mailSettingsToggle"),
   checkMailButton: document.querySelector("#checkMailButton"),
   testMailButton: document.querySelector("#testMailButton"),
   mailSetupForm: document.querySelector("#mailSetupForm"),
@@ -598,7 +599,7 @@ function renderMailStatus() {
     state.mailServer.checked && !state.mailServer.ready,
   );
   els.mailMode.textContent = state.mailServer.ready ? "Auto send armed" : "Draft fallback";
-  els.mailSender.textContent = state.mailServer.sender || "Not connected";
+  els.mailSender.textContent = state.mailServer.ready ? "Hidden" : "Not connected";
   els.mailStatusText.textContent = state.mailServer.message;
 }
 
@@ -1145,6 +1146,16 @@ function syncSmtpSecurity() {
   }
 }
 
+function toggleMailSettings(forceOpen) {
+  if (!els.mailSetupForm || !els.mailSettingsToggle) return;
+
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : !els.mailSetupForm.classList.contains("is-collapsed");
+  els.mailSetupForm.classList.toggle("is-collapsed", !shouldOpen);
+  els.mailSettingsToggle.setAttribute("aria-expanded", String(shouldOpen));
+  els.mailSettingsToggle.title = shouldOpen ? "Hide mail settings" : "Show mail settings";
+  els.mailSettingsToggle.setAttribute("aria-label", shouldOpen ? "Hide mail settings" : "Open mail settings");
+}
+
 async function saveMailConfig(event) {
   event.preventDefault();
   syncSmtpSecurity();
@@ -1505,8 +1516,14 @@ function wireEvents() {
   els.testMailButton.addEventListener("click", testMailServer);
   els.smtpPort.addEventListener("input", syncSmtpSecurity);
   els.smtpPort.addEventListener("change", syncSmtpSecurity);
+  if (els.mailSettingsToggle) {
+    els.mailSettingsToggle.addEventListener("click", () => {
+      const isOpen = !els.mailSetupForm.classList.contains("is-collapsed");
+      toggleMailSettings(!isOpen);
+    });
+  }
   els.mailSetupForm.addEventListener("submit", saveMailConfig);
-  
+
   // QR Code refresh
   if (els.qrRefreshBtn) {
     els.qrRefreshBtn.addEventListener("click", () => {
@@ -1542,4 +1559,5 @@ loadState();
 wireEvents();
 render();
 loadMailConfig();
+toggleMailSettings(false);
 checkMailServer(false);

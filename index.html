@@ -4,9 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Game Development Club Attendance</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=5" />
   </head>
   <body>
+    <canvas id="bg-canvas"></canvas>
     <main class="app-shell">
       <section class="hero-band" aria-labelledby="app-title">
         <div class="hero-copy">
@@ -57,6 +58,9 @@
       </section>
 
       <section class="mail-launcher" aria-labelledby="mailLauncherTitle">
+        <button id="mailSettingsToggle" class="mail-settings-toggle" type="button" aria-label="Open mail settings" aria-expanded="false" title="Mail settings">
+          ⚙
+        </button>
         <div class="launcher-copy">
           <p class="section-kicker">Auto Mail Engine</p>
           <h2 id="mailLauncherTitle">Warning mails launch when the meeting closes.</h2>
@@ -79,7 +83,7 @@
           <button id="checkMailButton" class="ghost-action" type="button">Check Mail Server</button>
           <button id="testMailButton" class="ghost-action" type="button">Test Sender</button>
         </div>
-        <form id="mailSetupForm" class="mail-setup">
+        <form id="mailSetupForm" class="mail-setup is-collapsed">
           <label>
             SMTP host
             <input id="smtpHost" type="text" placeholder="smtp.gmail.com" autocomplete="off" />
@@ -324,6 +328,7 @@
       </article>
     </template>
 
-    <script src="app.js"></script>
+    <script src="background.js?v=5"></script>
+    <script src="app.js?v=5"></script>
   </body>
 </html>
