@@ -1,9 +1,23 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const url = require("url");
 const nodemailer = require("nodemailer");
+const QRCode = require("qrcode");
 const db = require("./database");
+
+function getLocalIpAddress() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
 
 // MIME types for static file serving
 const MIME_TYPES = {
@@ -592,6 +606,152 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       return sendJson(res, 500, { error: err.message });
     }
+  }
+
+  // 5. QR CODE & SELF CHECK-IN APIS
+  if (req.method === "GET" && parsedUrl.pathname === "/api/meetings/qr") {
+    try {
+      const active = await db.getAsync("SELECT * FROM meetings WHERE status = 'active' LIMIT 1");
+      if (!active) {
+        return sendJson(res, 200, { active: false, message: "No active meeting" });
+      }
+
+      // Determine best host URL for students on the same network
+      const hostHeader = req.headers.host;
+      const lanIp = getLocalIpAddress();
+      const host = hostHeader && !hostHeader.startsWith("localhost") && !hostHeader.startsWith("127.0.0.1")
+        ? hostHeader
+        : `${lanIp}:${PORT}`;
+
+      const checkinUrl = `http://${host}/checkin.html?m=${active.id}&t=${active.qr_token}`;
+      const qrSvg = await QRCode.toString(checkinUrl, {
+        type: "svg",
+        margin: 1,
+        color: { dark: "#0f0f1a", light: "#ffffff" }
+      });
+
+      const countRow = await db.getAsync("SELECT COUNT(*) as count FROM attendance WHERE meeting_id = ? AND status = 'present'", [active.id]);
+
+      return sendJson(res, 200, {
+        active: true,
+        meeting: {
+          id: active.id,
+          title: active.title,
+          date: active.date,
+          startedAt: active.started_at,
+          checkedInCount: countRow ? countRow.count : 0
+        },
+        url: checkinUrl,
+        svg: qrSvg,
+        token: active.qr_token
+      });
+    } catch (err) {
+      console.error("QR generation error:", err.message);
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
+
+  if (req.method === "POST" && parsedUrl.pathname === "/api/meetings/refresh-token") {
+    try {
+      const active = await db.getAsync("SELECT id FROM meetings WHERE status = 'active' LIMIT 1");
+      if (!active) return sendJson(res, 400, { error: "No active meeting" });
+
+      const newToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      await db.runAsync("UPDATE meetings SET qr_token = ? WHERE id = ?", [newToken, active.id]);
+      return sendJson(res, 200, { success: true, token: newToken });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
+
+  if (req.method === "GET" && parsedUrl.pathname === "/api/checkin/info") {
+    try {
+      const meetingId = parsedUrl.searchParams.get("m");
+      const token = parsedUrl.searchParams.get("t");
+
+      const active = await db.getAsync("SELECT * FROM meetings WHERE status = 'active' LIMIT 1");
+      if (!active || (meetingId && active.id !== meetingId) || (token && active.qr_token !== token)) {
+        return sendJson(res, 200, {
+          valid: false,
+          error: "Meeting check-in is currently inactive or the QR token has expired."
+        });
+      }
+
+      const members = await db.allAsync(`
+        SELECT m.id, m.name, m.email, t.name as team_name, t.color as team_color
+        FROM members m
+        LEFT JOIN teams t ON m.team_id = t.id
+        ORDER BY m.name ASC
+      `);
+
+      return sendJson(res, 200, {
+        valid: true,
+        meeting: {
+          id: active.id,
+          title: active.title,
+          date: active.date,
+          startedAt: active.started_at
+        },
+        members
+      });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
+
+  if (req.method === "POST" && parsedUrl.pathname === "/api/checkin") {
+    const body = await readBody(req);
+    if (body.__parseError) return sendJson(res, 400, { error: "Invalid JSON" });
+
+    const { meetingId, token, memberId, email } = body;
+    const active = await db.getAsync("SELECT * FROM meetings WHERE status = 'active' LIMIT 1");
+
+    if (!active || active.id !== meetingId || active.qr_token !== token) {
+      return sendJson(res, 400, { error: "Check-in expired or invalid. Please scan the current live QR code." });
+    }
+
+    const member = await db.getAsync("SELECT * FROM members WHERE id = ? OR email = ? LIMIT 1", [memberId || "", (email || "").toLowerCase()]);
+    if (!member) {
+      return sendJson(res, 404, { error: "Member profile not found. Please contact a club officer." });
+    }
+
+    // Check if already checked in
+    const existing = await db.getAsync("SELECT id, marked_at FROM attendance WHERE meeting_id = ? AND member_id = ?", [active.id, member.id]);
+    if (existing) {
+      return sendJson(res, 200, {
+        alreadyMarked: true,
+        member: { id: member.id, name: member.name, email: member.email },
+        markedAt: existing.marked_at,
+        message: "You are already checked in for this meeting!"
+      });
+    }
+
+    // Count present so far to determine early bird
+    const countRow = await db.getAsync("SELECT COUNT(*) as count FROM attendance WHERE meeting_id = ? AND status = 'present'", [active.id]);
+    const currentCount = countRow ? countRow.count : 0;
+    const isEarly = currentCount < 3;
+    const markedAt = new Date().toISOString();
+
+    await db.runAsync(`
+      INSERT INTO attendance (meeting_id, member_id, student_name, email, team_id, status, marked_at, is_early)
+      VALUES (?, ?, ?, ?, ?, 'present', ?, ?)
+    `, [active.id, member.id, member.name, member.email, member.team_id, markedAt, isEarly ? 1 : 0]);
+
+    // Current gamification stats
+    const gam = await db.getAsync("SELECT * FROM gamification WHERE member_id = ?", [member.id]);
+    const points = (gam?.points || 0) + (isEarly ? 15 : 10);
+    const streak = (gam?.streak || 0) + 1;
+
+    return sendJson(res, 200, {
+      success: true,
+      member: { id: member.id, name: member.name, email: member.email },
+      isEarly,
+      pointsEarned: isEarly ? 15 : 10,
+      totalPoints: points,
+      currentStreak: streak,
+      markedAt,
+      message: isEarly ? "Awesome! You arrived early (+5 bonus points awarded)!" : "Check-in successful! +10 points awarded."
+    });
   }
 
 

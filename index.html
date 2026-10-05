@@ -32,8 +32,11 @@
           <div id="qrCodeContainer" class="qr-code-container">
             <div id="qrCodeCanvas" class="qr-code-canvas"></div>
             <p id="qrCodeToken" class="qr-code-token"></p>
-            <button id="qrRefreshBtn" class="ghost-action" type="button">Refresh QR Code</button>
-            <p class="qr-hint">Share this QR code with members for self check-in</p>
+            <div style="display: flex; gap: 8px; justify-content: center; margin-top: 8px;">
+              <button id="qrRefreshBtn" class="ghost-action" type="button">Refresh Code</button>
+              <button id="qrCopyLinkBtn" class="ghost-action" type="button">Copy Link</button>
+            </div>
+            <p class="qr-hint">Scan with phone camera to self-mark attendance</p>
           </div>
         </div>
       </section>

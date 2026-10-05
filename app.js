@@ -85,6 +85,7 @@ const els = {
   qrCodeCanvas: document.querySelector("#qrCodeCanvas"),
   qrCodeToken: document.querySelector("#qrCodeToken"),
   qrRefreshBtn: document.querySelector("#qrRefreshBtn"),
+  qrCopyLinkBtn: document.querySelector("#qrCopyLinkBtn"),
   selfCheckinSection: document.querySelector("#selfCheckinSection"),
   gamificationSection: document.querySelector("#gamificationSection"),
   leaderboardList: document.querySelector("#leaderboardList"),
@@ -1096,19 +1097,41 @@ function handleSelfCheckin(qrData) {
   );
 }
 
-function renderQRCode() {
+let currentCheckinUrl = "";
+
+async function renderQRCode() {
   if (!els.qrCodeContainer || !els.qrCodeCanvas) return;
   
   if (!state.activeMeeting) {
+    if (els.selfCheckinSection) els.selfCheckinSection.style.display = "none";
     els.qrCodeContainer.style.display = "none";
     return;
   }
   
+  if (els.selfCheckinSection) els.selfCheckinSection.style.display = "";
   els.qrCodeContainer.style.display = "";
+
+  try {
+    const res = await fetchApi("/api/meetings/qr", { method: "GET" });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.active && data.svg) {
+        els.qrCodeCanvas.innerHTML = data.svg;
+        currentCheckinUrl = data.url;
+        els.qrCodeToken.textContent = `${state.activeMeeting.title}`;
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn("Backend QR fetch notice:", err.message);
+  }
+
+  // Local fallback
+  currentCheckinUrl = `${window.location.origin}/checkin.html?m=${state.activeMeeting.id}&t=${state.activeMeeting.qrToken}`;
   const qr = generateMeetingQRCode();
   if (qr) {
     els.qrCodeCanvas.innerHTML = qr.svg;
-    els.qrCodeToken.textContent = `Meeting: ${state.activeMeeting.title}`;
+    els.qrCodeToken.textContent = `${state.activeMeeting.title}`;
   }
 }
 
@@ -1673,14 +1696,33 @@ function wireEvents() {
   }
   els.mailSetupForm.addEventListener("submit", saveMailConfig);
 
-  // QR Code refresh
+  // QR Code refresh & copy
   if (els.qrRefreshBtn) {
-    els.qrRefreshBtn.addEventListener("click", () => {
+    els.qrRefreshBtn.addEventListener("click", async () => {
       if (state.activeMeeting) {
-        state.activeMeeting.qrToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        try {
+          const res = await fetchApi("/api/meetings/refresh-token", { method: "POST" });
+          if (res.ok) {
+            const data = await res.json();
+            state.activeMeeting.qrToken = data.token;
+          }
+        } catch (_) {
+          state.activeMeeting.qrToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        }
         saveMeeting();
-        renderQRCode();
+        await renderQRCode();
         setMessage(els.meetingMessage, "QR code refreshed for security.", "good");
+      }
+    });
+  }
+
+  if (els.qrCopyLinkBtn) {
+    els.qrCopyLinkBtn.addEventListener("click", async () => {
+      if (currentCheckinUrl) {
+        await copyText(currentCheckinUrl);
+        const originalText = els.qrCopyLinkBtn.textContent;
+        els.qrCopyLinkBtn.textContent = "Copied!";
+        setTimeout(() => { els.qrCopyLinkBtn.textContent = originalText; }, 2000);
       }
     });
   }

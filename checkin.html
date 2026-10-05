@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Member Check-in | Game Development Club</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --primary: #6366f1;
+        --primary-light: #818cf8;
+        --secondary: #ec4899;
+        --accent: #06b6d4;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --bg-dark: #0a0a14;
+        --bg-card: rgba(22, 33, 62, 0.85);
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --border: rgba(99, 102, 241, 0.25);
+        --border-hover: rgba(99, 102, 241, 0.5);
+        --glow: 0 0 25px rgba(99, 102, 241, 0.35);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--bg-dark);
+        background-image: 
+          radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+          radial-gradient(circle at 85% 85%, rgba(236, 72, 153, 0.12) 0%, transparent 40%);
+        color: var(--text-main);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px 16px;
+      }
+
+      .checkin-container {
+        width: 100%;
+        max-width: 440px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 28px 24px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), var(--glow);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        animation: fadeIn 0.4s ease-out;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .brand-header {
+        text-align: center;
+        margin-bottom: 24px;
+      }
+
+      .brand-badge {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--accent);
+        background: rgba(6, 182, 212, 0.12);
+        padding: 4px 12px;
+        border-radius: 9999px;
+        border: 1px solid rgba(6, 182, 212, 0.3);
+        margin-bottom: 8px;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 900;
+        letter-spacing: -0.5px;
+        background: linear-gradient(135deg, #ffffff, var(--primary-light));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .meeting-info {
+        background: rgba(15, 15, 26, 0.6);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      .meeting-title {
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--text-main);
+      }
+
+      .meeting-date {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      .search-box {
+        position: relative;
+        margin-bottom: 16px;
+      }
+
+      .search-input {
+        width: 100%;
+        padding: 12px 14px;
+        background: rgba(10, 10, 20, 0.8);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        color: var(--text-main);
+        font-size: 0.95rem;
+        outline: none;
+        transition: all 0.2s ease;
+      }
+
+      .search-input:focus {
+        border-color: var(--primary-light);
+        box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+      }
+
+      .members-list {
+        max-height: 250px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 20px;
+        padding-right: 4px;
+      }
+
+      .member-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        background: rgba(30, 41, 59, 0.5);
+        border: 1px solid transparent;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .member-item:hover, .member-item.selected {
+        background: rgba(99, 102, 241, 0.15);
+        border-color: var(--primary);
+        transform: translateX(2px);
+      }
+
+      .avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: white;
+        flex-shrink: 0;
+      }
+
+      .member-details {
+        flex: 1;
+        overflow: hidden;
+      }
+
+      .member-name {
+        font-weight: 600;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .member-meta {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .team-tag {
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .submit-btn {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, var(--primary), #4f46e5);
+        border: none;
+        border-radius: 12px;
+        color: white;
+        font-weight: 700;
+        font-size: 1rem;
+        cursor: pointer;
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+        transition: all 0.2s ease;
+      }
+
+      .submit-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+      }
+
+      .submit-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* Result Screens */
+      .result-view {
+        text-align: center;
+        padding: 16px 0;
+      }
+
+      .result-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        margin: 0 auto 16px;
+      }
+
+      .icon-success {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--success);
+        border: 2px solid var(--success);
+      }
+
+      .icon-error {
+        background: rgba(239, 68, 68, 0.2);
+        color: var(--danger);
+        border: 2px solid var(--danger);
+      }
+
+      .result-title {
+        font-size: 1.3rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+      }
+
+      .result-msg {
+        font-size: 0.88rem;
+        color: var(--text-muted);
+        margin-bottom: 20px;
+        line-height: 1.4;
+      }
+
+      .stats-badge-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin: 20px 0;
+      }
+
+      .stat-pill {
+        background: rgba(15, 15, 26, 0.7);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+      }
+
+      .stat-pill strong {
+        display: block;
+        font-size: 1.3rem;
+        font-weight: 900;
+        color: var(--primary-light);
+      }
+
+      .stat-pill span {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+      }
+
+      .early-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--warning);
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        padding: 6px 14px;
+        border-radius: 9999px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        margin-top: 8px;
+      }
+
+      .footer-note {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 0.7rem;
+        color: var(--text-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="checkin-container" id="checkinCard">
+      <div id="loadingView" style="text-align: center; padding: 40px 0;">
+        <p style="color: var(--primary-light); font-weight: 600;">Verifying meeting session...</p>
+      </div>
+
+      <div id="checkinFormView" style="display: none;">
+        <header class="brand-header">
+          <span class="brand-badge">Self Check-in</span>
+          <h1>Presence Check</h1>
+        </header>
+
+        <section class="meeting-info">
+          <div class="meeting-title" id="meetingTitleDisplay">Weekly Sprint Sync</div>
+          <div class="meeting-date" id="meetingDateDisplay">Today</div>
+        </section>
+
+        <div class="search-box">
+          <input
+            type="text"
+            id="searchInput"
+            class="search-input"
+            placeholder="Type your name or email..."
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="members-list" id="membersList"></div>
+
+        <button type="button" id="confirmBtn" class="submit-btn" disabled>
+          Select Your Name Above
+        </button>
+      </div>
+
+      <div id="resultView" class="result-view" style="display: none;">
+        <div id="resultIcon" class="result-icon icon-success">✓</div>
+        <h2 id="resultTitle" class="result-title">Checked In!</h2>
+        <p id="resultMsg" class="result-msg">Your attendance has been confirmed.</p>
+        
+        <div id="statsGrid" class="stats-badge-grid" style="display: none;">
+          <div class="stat-pill">
+            <strong id="pointsGainedDisplay">+10</strong>
+            <span>Points Earned</span>
+          </div>
+          <div class="stat-pill">
+            <strong id="streakDisplay">1 🔥</strong>
+            <span>Streak</span>
+          </div>
+        </div>
+
+        <div id="earlyBirdBadge" style="display: none;">
+          <span class="early-chip">🐦 Early Bird (+5 Bonus Points)</span>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer-note">
+      Game Development Club Attendance Engine • Secure QR Verification
+    </footer>
+
+    <script>
+      (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const meetingId = urlParams.get("m");
+        const token = urlParams.get("t");
+
+        const els = {
+          loadingView: document.getElementById("loadingView"),
+          checkinFormView: document.getElementById("checkinFormView"),
+          resultView: document.getElementById("resultView"),
+          meetingTitleDisplay: document.getElementById("meetingTitleDisplay"),
+          meetingDateDisplay: document.getElementById("meetingDateDisplay"),
+          searchInput: document.getElementById("searchInput"),
+          membersList: document.getElementById("membersList"),
+          confirmBtn: document.getElementById("confirmBtn"),
+          resultIcon: document.getElementById("resultIcon"),
+          resultTitle: document.getElementById("resultTitle"),
+          resultMsg: document.getElementById("resultMsg"),
+          statsGrid: document.getElementById("statsGrid"),
+          pointsGainedDisplay: document.getElementById("pointsGainedDisplay"),
+          streakDisplay: document.getElementById("streakDisplay"),
+          earlyBirdBadge: document.getElementById("earlyBirdBadge")
+        };
+
+        let allMembers = [];
+        let selectedMember = null;
+
+        function showResult(isSuccess, title, message, stats = null) {
+          els.loadingView.style.display = "none";
+          els.checkinFormView.style.display = "none";
+          els.resultView.style.display = "block";
+
+          els.resultIcon.className = `result-icon ${isSuccess ? 'icon-success' : 'icon-error'}`;
+          els.resultIcon.textContent = isSuccess ? '✓' : '✕';
+          els.resultTitle.textContent = title;
+          els.resultMsg.textContent = message;
+
+          if (stats && stats.pointsEarned) {
+            els.statsGrid.style.display = "grid";
+            els.pointsGainedDisplay.textContent = `+${stats.pointsEarned}`;
+            els.streakDisplay.textContent = `${stats.currentStreak} 🔥`;
+            if (stats.isEarly) {
+              els.earlyBirdBadge.style.display = "block";
+            }
+          } else {
+            els.statsGrid.style.display = "none";
+            els.earlyBirdBadge.style.display = "none";
+          }
+        }
+
+        async function initCheckin() {
+          if (!meetingId || !token) {
+            showResult(false, "Invalid QR Link", "This check-in link is missing the meeting ID or token. Please scan the QR code again.");
+            return;
+          }
+
+          try {
+            const res = await fetch(`/api/checkin/info?m=${encodeURIComponent(meetingId)}&t=${encodeURIComponent(token)}`);
+            const data = await res.json();
+
+            if (!res.ok || !data.valid) {
+              showResult(false, "Check-in Inactive", data.error || "This meeting check-in is not live or the token has expired.");
+              return;
+            }
+
+            // Display meeting info
+            els.meetingTitleDisplay.textContent = data.meeting.title;
+            els.meetingDateDisplay.textContent = data.meeting.date;
+            allMembers = data.members || [];
+
+            renderMembers(allMembers);
+            els.loadingView.style.display = "none";
+            els.checkinFormView.style.display = "block";
+          } catch (err) {
+            showResult(false, "Connection Error", "Could not connect to the attendance server. Make sure you are connected to the club Wi-Fi.");
+          }
+        }
+
+        function renderMembers(members) {
+          els.membersList.innerHTML = "";
+          if (members.length === 0) {
+            els.membersList.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 12px; font-size: 0.85rem;">No matching members found.</p>';
+            return;
+          }
+
+          members.forEach(member => {
+            const row = document.createElement("div");
+            row.className = `member-item ${selectedMember?.id === member.id ? 'selected' : ''}`;
+            const initials = member.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
+
+            row.innerHTML = `
+              <div class="avatar">${initials}</div>
+              <div class="member-details">
+                <div class="member-name">${member.name}</div>
+                <div class="member-meta">
+                  <span>${member.email}</span>
+                  ${member.team_name ? `<span class="team-tag" style="color: ${member.team_color || '#818cf8'}">${member.team_name}</span>` : ''}
+                </div>
+              </div>
+            `;
+
+            row.addEventListener("click", () => {
+              selectedMember = member;
+              renderMembers(members);
+              els.confirmBtn.disabled = false;
+              els.confirmBtn.textContent = `Check In as ${member.name.split(' ')[0]}`;
+            });
+
+            els.membersList.appendChild(row);
+          });
+        }
+
+        els.searchInput.addEventListener("input", (e) => {
+          const query = e.target.value.trim().toLowerCase();
+          if (!query) {
+            renderMembers(allMembers);
+            return;
+          }
+
+          const filtered = allMembers.filter(m => 
+            m.name.toLowerCase().includes(query) || m.email.toLowerCase().includes(query)
+          );
+          renderMembers(filtered);
+        });
+
+        els.confirmBtn.addEventListener("click", async () => {
+          if (!selectedMember) return;
+
+          els.confirmBtn.disabled = true;
+          els.confirmBtn.textContent = "Verifying...";
+
+          try {
+            const res = await fetch("/api/checkin", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                meetingId,
+                token,
+                memberId: selectedMember.id,
+                email: selectedMember.email
+              })
+            });
+
+            const result = await res.json();
+
+            if (res.ok && result.success) {
+              showResult(true, `Welcome, ${result.member.name.split(' ')[0]}!`, result.message, {
+                pointsEarned: result.pointsEarned,
+                currentStreak: result.currentStreak,
+                isEarly: result.isEarly
+              });
+            } else if (result.alreadyMarked) {
+              const time = result.markedAt ? new Date(result.markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+              showResult(true, "Already Checked In", `You are already recorded as present${time ? ' at ' + time : ''}. Enjoy the session!`);
+            } else {
+              showResult(false, "Check-in Failed", result.error || "Unable to confirm attendance. Please see a club officer.");
+            }
+          } catch (err) {
+            showResult(false, "Network Error", "Could not submit your attendance. Please check your connection.");
+          }
+        });
+
+        initCheckin();
+      })();
+    </script>
+  </body>
+</html>
