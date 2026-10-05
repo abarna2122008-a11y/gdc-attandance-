@@ -33,6 +33,15 @@ A modern, feature-rich attendance console for the Game Development Club with gam
 - Refresh tokens for security
 - Visual QR display in the hero section
 
+### 📁 CSV Roster Import & Export
+- **One-Click CSV Import**: Import entire student/member rosters (`Name, Email, Team`) directly from `.csv` files
+- **Automatic Team Provisioning**: Teams found in imported CSV files are created automatically with unique color accents
+- **CSV & JSON Export**: Export current member rosters with attendance rates and points to CSV, or download full database JSON backups
+
+### ⚡ Performance & Battery Optimization
+- **Canvas Throttling**: Background canvas animation automatically pauses when tab is inactive (`document.hidden`), drastically reducing CPU & GPU usage
+- **Reduced Motion Support**: Honors `prefers-reduced-motion: reduce` OS accessibility settings with static render mode
+
 ### 📈 Attendance Analytics
 - Bar chart showing attendance trends over last 10 meetings
 - Attendance rate percentages

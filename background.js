@@ -412,8 +412,10 @@
     ctx.restore();
   }
 
-  function animate() {
-    time += 1;
+  let animFrameId = null;
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  function renderFrame() {
     drawBackground();
     drawPerspectiveGrid();
     drawEnergyRings();
@@ -423,7 +425,32 @@
     drawFloatingRibbons();
     drawCubes();
     drawScanlines();
-    requestAnimationFrame(animate);
+  }
+
+  function animate() {
+    if (document.hidden) {
+      return;
+    }
+
+    time += 1;
+    renderFrame();
+
+    if (!prefersReducedMotion.matches) {
+      animFrameId = requestAnimationFrame(animate);
+    }
+  }
+
+  function startLoop() {
+    if (!animFrameId && !prefersReducedMotion.matches && !document.hidden) {
+      animFrameId = requestAnimationFrame(animate);
+    }
+  }
+
+  function stopLoop() {
+    if (animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+    }
   }
 
   function init() {
@@ -438,13 +465,20 @@
     for (let i = 0; i < config.cubeCount; i++) {
       cubes.push(new FloatingCube());
     }
+    
+    renderFrame();
   }
 
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', () => {
+    resize();
+    renderFrame();
+  });
+
   window.addEventListener('mousemove', (event) => {
     mouse.x = event.clientX;
     mouse.y = event.clientY;
   });
+
   window.addEventListener('mouseleave', () => {
     mouse.x = width * 0.5;
     mouse.y = height * 0.4;
@@ -457,7 +491,31 @@
     }
   });
 
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopLoop();
+    } else {
+      startLoop();
+    }
+  });
+
+  if (prefersReducedMotion.addEventListener) {
+    prefersReducedMotion.addEventListener('change', (e) => {
+      if (e.matches) {
+        stopLoop();
+        renderFrame();
+      } else {
+        startLoop();
+      }
+    });
+  }
+
   init();
-  animate();
-  window.addEventListener('load', resize);
+  if (!prefersReducedMotion.matches) {
+    animate();
+  }
+  window.addEventListener('load', () => {
+    resize();
+    renderFrame();
+  });
 })();

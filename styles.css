@@ -82,86 +82,36 @@ body {
   position: relative;
 }
 
-/* UI fade: battlefield stays dominant and all framing disappears */
-.app-shell,
+/* Glassmorphic Cyberpunk Card Surfaces */
 .hero-band,
 .status-strip > div,
-.workspace-grid,
 .panel,
-.panel-heading,
-.signal-panel,
-.signal-core,
-.signal-ring,
 .mail-launcher,
 .output-band,
-.warning-deck,
-.warning-card,
-.history-row,
-.member-row,
-.roster-row,
-.team-row,
-.leaderboard-row,
-.badge-card,
-.stat-card,
-.qr-code-container,
-.empty-state,
-.live-badge,
-.toggle-label,
-.launcher-track,
-.icon-button,
-.member-list,
-.roster-list,
-.history-list,
-.leaderboard-list,
-.badges-list,
-.team-list,
-.chart-container,
-.chart-bar-group,
-.chart-bar,
-.self-checkin-section {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
+.team-band,
+.stats-band,
+.history-band {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
-body::before,
-body::after {
-  display: none !important;
+/* Crisp readable typography and contrast */
+.metric-label {
+  color: var(--text-muted);
 }
 
-/* Make the text appear crisp and glowing over the scene */
-.hero-copy,
-.hero-band,
-.metric-label,
-.status-strip strong,
-.panel-heading h2,
-.section-kicker,
-.launcher-copy h2,
-.output-header h2,
-.warning-card h3,
-.member-row strong,
-.roster-row strong,
-.history-row strong,
-.lb-info strong,
-.team-info strong,
-.stat-value,
-.qr-code-token,
-.message-line,
-label,
-input,
-select,
-textarea,
-button,
-strong,
-span,
-small,
-.email,
-.mail-launcher strong,
-.mail-launcher .metric-label {
-  color: #f8fbff !important;
-  text-shadow: 0 0 16px rgba(161, 197, 255, 0.22), 0 0 26px rgba(99, 102, 241, 0.18);
+.status-strip strong {
+  color: #f8fafc;
 }
+
+.section-kicker {
+  color: var(--primary-light);
+}
+
 
 /* Animated background grid - sits above canvas but below content */
 body::before {
@@ -223,11 +173,13 @@ body::after {
   align-items: center;
   min-height: 280px;
   padding: var(--space-2xl) var(--space-xl);
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  overflow: visible;
-  box-shadow: none !important;
+  background: rgba(22, 33, 62, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
 }
 
 .hero-band::before {
@@ -384,10 +336,13 @@ h1 {
 .status-strip > div {
   position: relative;
   padding: var(--space-lg);
-  background: transparent !important;
-  border-radius: 0 !important;
-  border: none !important;
-  overflow: visible;
+  background: rgba(30, 41, 59, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
   transition: all 0.3s ease;
 }
 
@@ -440,13 +395,16 @@ h1 {
 }
 
 .panel {
-  background: transparent !important;
-  border-radius: 0 !important;
-  border: none !important;
+  background: rgba(22, 33, 62, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   padding: var(--space-lg);
+  box-shadow: var(--shadow-card);
   transition: all 0.3s ease;
   position: relative;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .panel::before {
@@ -558,17 +516,17 @@ input, select, textarea {
   font-family: var(--font-main);
   font-size: 0.95rem;
   color: #f8fbff;
-  background: transparent !important;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 0 !important;
+  background: rgba(15, 15, 26, 0.85);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   outline: none;
   transition: all 0.2s ease;
-  box-shadow: none !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 input:focus, select:focus, textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
 }
 
 input::placeholder {
@@ -604,12 +562,12 @@ button, a.button {
   font-size: 0.9rem;
   font-weight: 700;
   color: #f4f7ff;
-  background: transparent !important;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0 !important;
-  box-shadow: none !important;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border: 1px solid rgba(129, 140, 248, 0.4);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
   position: relative;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .primary-action::before {
@@ -642,9 +600,9 @@ button, a.button {
   font-size: 0.85rem;
   font-weight: 700;
   color: #f4f7ff;
-  background: transparent !important;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0 !important;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
 .secondary-action:hover {
@@ -659,10 +617,10 @@ button, a.button {
   font-size: 0.9rem;
   font-weight: 700;
   color: #fff4f4;
-  background: transparent !important;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0 !important;
-  box-shadow: none !important;
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
   margin-top: var(--space-md);
 }
 
@@ -683,15 +641,15 @@ button, a.button {
   font-size: 0.8rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
-  background: transparent !important;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 0 !important;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
 
 .ghost-action:hover {
   color: var(--primary-light);
   border-color: var(--primary);
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(99, 102, 241, 0.15);
 }
 
 .text-action {
@@ -801,14 +759,14 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: transparent !important;
-  border-radius: 0 !important;
-  border: none !important;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
   transition: all 0.2s ease;
 }
 
 .member-row:hover {
-  border-color: var(--border);
+  border-color: var(--border-hover);
   background: var(--bg-card);
 }
 
@@ -837,9 +795,9 @@ button:disabled {
   gap: var(--space-md);
   align-items: center;
   padding: 12px 16px;
-  background: transparent !important;
-  border-radius: 0 !important;
-  border: none !important;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
   transition: all 0.2s ease;
 }
 
@@ -906,10 +864,9 @@ button:disabled {
   font-size: 0.85rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.86);
-  padding: 0;
-  background: transparent !important;
-  border-radius: 0 !important;
-  border-left: none !important;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
 }
 
 .message-line.good {
@@ -932,11 +889,13 @@ button:disabled {
   align-items: stretch;
   margin-top: var(--space-lg);
   padding: var(--space-lg);
-  background: transparent !important;
-  border-radius: 0 !important;
-  border: none !important;
+  background: rgba(26, 26, 46, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
   position: relative;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .mail-launcher::before {
@@ -1072,9 +1031,12 @@ button:disabled {
 .stats-band {
   margin-top: var(--space-lg);
   padding: var(--space-lg);
-  background: transparent !important;
-  border-radius: 0 !important;
-  border: none !important;
+  background: rgba(22, 33, 62, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
 }
 
 .output-header {
@@ -1092,9 +1054,9 @@ button:disabled {
 
 .warning-card {
   padding: var(--space-md);
-  background: transparent !important;
-  border-radius: 0 !important;
-  border: none !important;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(239, 68, 68, 0.25);
   transition: all 0.3s ease;
 }
 
@@ -1187,14 +1149,14 @@ button:disabled {
   align-items: center;
   gap: var(--space-md);
   padding: 12px 16px;
-  background: transparent !important;
-  border-radius: 0 !important;
-  border: none !important;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
   transition: all 0.2s ease;
 }
 
 .history-row:hover {
-  border-color: var(--border);
+  border-color: var(--border-hover);
   background: var(--bg-card);
 }
 
@@ -1253,11 +1215,13 @@ button:disabled {
 
 .qr-code-container {
   padding: var(--space-md);
-  background: transparent;
+  background: rgba(22, 33, 62, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: var(--radius-lg);
   text-align: center;
-  box-shadow: none;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.35);
   animation: qrFloat 3s ease-in-out infinite;
 }
 
@@ -1646,3 +1610,90 @@ button:disabled {
     font-size: 0.95rem;
   }
 }
+
+/* ===== Dialog Modals ===== */
+dialog.app-modal {
+  background: rgba(22, 33, 62, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-xl);
+  padding: 0;
+  color: var(--text-primary);
+  max-width: 440px;
+  width: 90vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), var(--glow-primary);
+  margin: auto;
+}
+
+dialog.app-modal::backdrop {
+  background: rgba(10, 10, 20, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.modal-content {
+  padding: var(--space-xl);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-lg);
+}
+
+.modal-header h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.color-picker-grid {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.color-choice {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.color-choice:hover {
+  transform: scale(1.18);
+}
+
+.color-choice.selected {
+  border-color: #ffffff;
+  transform: scale(1.18);
+  box-shadow: 0 0 12px currentColor;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  margin-top: var(--space-xl);
+}

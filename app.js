@@ -96,6 +96,15 @@ const els = {
   teamList: document.querySelector("#teamList"),
   addTeamBtn: document.querySelector("#addTeamBtn"),
   teamModal: document.querySelector("#teamModal"),
+  teamModalForm: document.querySelector("#teamModalForm"),
+  modalTeamName: document.querySelector("#modalTeamName"),
+  modalTeamColor: document.querySelector("#modalTeamColor"),
+  colorPickerGrid: document.querySelector("#colorPickerGrid"),
+  closeTeamModalBtn: document.querySelector("#closeTeamModalBtn"),
+  cancelTeamBtn: document.querySelector("#cancelTeamBtn"),
+  importCsvButton: document.querySelector("#importCsvButton"),
+  csvFileInput: document.querySelector("#csvFileInput"),
+  exportCsvButton: document.querySelector("#exportCsvButton"),
 };
 
 const API_BASE = window.location.protocol === "file:" ? "http://localhost:3000" : "";
@@ -176,6 +185,10 @@ function saveWarnings() {
   } else {
     localStorage.removeItem(STORAGE_KEYS.latestWarnings);
   }
+}
+
+function saveTeams() {
+  writeJson(STORAGE_KEYS.teams, state.teams);
 }
 
 function normalizeEmail(value) {
@@ -872,6 +885,295 @@ function renderTeams() {
     });
     els.teamFilter.value = currentValue || "all";
   }
+
+  // Update memberTeam dropdown
+  if (els.memberTeam) {
+    const currentVal = els.memberTeam.value;
+    els.memberTeam.innerHTML = "";
+    state.teams.forEach(team => {
+      const option = document.createElement("option");
+      option.value = team.id;
+      option.textContent = team.name;
+      els.memberTeam.appendChild(option);
+    });
+    if (currentVal && state.teams.some(t => t.id === currentVal)) {
+      els.memberTeam.value = currentVal;
+    }
+  }
+}
+
+async function addTeam(name, color = "#6366f1") {
+  const cleanName = name.trim();
+  if (!cleanName) return;
+
+  const teamId = `team-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
+  const teamColor = color || "#6366f1";
+
+  const newTeam = {
+    id: teamId,
+    name: cleanName,
+    color: teamColor
+  };
+
+  state.teams.push(newTeam);
+  saveTeams();
+  renderTeams();
+
+  try {
+    await fetchApi("/api/teams", {
+      method: "POST",
+      body: JSON.stringify(newTeam)
+    });
+  } catch (err) {
+    console.warn("Backend sync notice for addTeam:", err.message);
+  }
+}
+
+async function removeTeam(teamId) {
+  if (!teamId || teamId === "default") return;
+
+  state.teams = state.teams.filter(t => t.id !== teamId);
+  // Reassign members belonging to this team to default
+  state.members.forEach(m => {
+    if (m.team === teamId) m.team = "default";
+  });
+
+  saveTeams();
+  saveMembers();
+  renderTeams();
+  renderMembers();
+  renderRoster();
+
+  try {
+    await fetchApi("/api/teams/delete", {
+      method: "POST",
+      body: JSON.stringify({ id: teamId })
+    });
+  } catch (err) {
+    console.warn("Backend sync notice for removeTeam:", err.message);
+  }
+}
+
+const TEAM_PRESET_COLORS = [
+  "#6366f1", // Neon Indigo
+  "#06b6d4", // Electric Cyan
+  "#ec4899", // Cyber Pink
+  "#10b981", // Emerald Green
+  "#f59e0b", // Amber Orange
+  "#ef4444", // Crimson Red
+  "#8b5cf6", // Violet
+  "#14b8a6", // Mint Teal
+  "#3b82f6"  // Royal Blue
+];
+
+function initTeamModal() {
+  if (!els.teamModal) return;
+
+  if (els.colorPickerGrid) {
+    els.colorPickerGrid.innerHTML = "";
+    TEAM_PRESET_COLORS.forEach((color, idx) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `color-choice ${idx === 0 ? 'selected' : ''}`;
+      btn.style.backgroundColor = color;
+      btn.setAttribute("data-color", color);
+      btn.title = color;
+      btn.addEventListener("click", () => {
+        els.colorPickerGrid.querySelectorAll(".color-choice").forEach(c => c.classList.remove("selected"));
+        btn.classList.add("selected");
+        if (els.modalTeamColor) els.modalTeamColor.value = color;
+      });
+      els.colorPickerGrid.appendChild(btn);
+    });
+  }
+
+  if (els.closeTeamModalBtn) {
+    els.closeTeamModalBtn.addEventListener("click", () => {
+      els.teamModal.close();
+    });
+  }
+
+  if (els.cancelTeamBtn) {
+    els.cancelTeamBtn.addEventListener("click", () => {
+      els.teamModal.close();
+    });
+  }
+
+  if (els.teamModalForm) {
+    els.teamModalForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = els.modalTeamName ? els.modalTeamName.value.trim() : "";
+      const color = els.modalTeamColor ? els.modalTeamColor.value : "#6366f1";
+      if (!name) return;
+
+      await addTeam(name, color);
+      els.teamModal.close();
+      if (els.modalTeamName) els.modalTeamName.value = "";
+      setMessage(els.meetingMessage, `Created team "${name}".`, "good");
+    });
+  }
+}
+
+function openTeamModal() {
+  if (els.teamModal && typeof els.teamModal.showModal === "function") {
+    if (els.modalTeamName) els.modalTeamName.value = "";
+    if (els.modalTeamColor) els.modalTeamColor.value = TEAM_PRESET_COLORS[0];
+    if (els.colorPickerGrid) {
+      els.colorPickerGrid.querySelectorAll(".color-choice").forEach((c, idx) => {
+        c.classList.toggle("selected", idx === 0);
+      });
+    }
+    els.teamModal.showModal();
+    if (els.modalTeamName) els.modalTeamName.focus();
+  } else {
+    const name = prompt("Enter team name:");
+    if (name && name.trim()) {
+      addTeam(name.trim());
+    }
+  }
+}
+
+// ===== Data Export & CSV Import/Export =====
+function exportData() {
+  const payload = {
+    exportDate: new Date().toISOString(),
+    version: 2,
+    members: state.members,
+    teams: state.teams,
+    activeMeeting: state.activeMeeting,
+    history: state.history,
+    gamification: state.gamification
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `gdc-attendance-backup-${todayValue()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setMessage(els.meetingMessage, "Exported full attendance database (JSON).", "good");
+}
+
+function exportCsv() {
+  if (!state.members.length) {
+    setMessage(els.meetingMessage, "No members to export.", "bad");
+    return;
+  }
+
+  const teamMap = {};
+  state.teams.forEach(t => { teamMap[t.id] = t.name; });
+
+  const headers = ["Name", "Email", "Team", "Points", "Current Streak", "Attendance Rate"];
+  const rows = state.members.map(m => {
+    const teamName = teamMap[m.team] || "General";
+    const points = (state.gamification && state.gamification.points && state.gamification.points[m.id]) || 0;
+    const streak = (state.gamification && state.gamification.streaks && state.gamification.streaks[m.id]) || 0;
+    const totalMeetings = state.history.length;
+    let attended = 0;
+    state.history.forEach(h => {
+      if (h.attendance && h.attendance[m.id]) attended++;
+    });
+    const rate = totalMeetings > 0 ? `${Math.round((attended / totalMeetings) * 100)}%` : "N/A";
+    
+    return [
+      `"${m.name.replace(/"/g, '""')}"`,
+      `"${m.email.replace(/"/g, '""')}"`,
+      `"${teamName.replace(/"/g, '""')}"`,
+      points,
+      streak,
+      `"${rate}"`
+    ].join(",");
+  });
+
+  const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `gdc-members-roster-${todayValue()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setMessage(els.meetingMessage, `Exported ${state.members.length} members to CSV.`, "good");
+}
+
+async function importCsv(file) {
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const text = e.target.result;
+      const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
+      if (lines.length === 0) {
+        setMessage(els.meetingMessage, "CSV file is empty.", "bad");
+        return;
+      }
+
+      let startIndex = 0;
+      const firstLine = lines[0].toLowerCase();
+      if (firstLine.includes("name") || firstLine.includes("email")) {
+        startIndex = 1;
+      }
+
+      let importedCount = 0;
+      let skippedCount = 0;
+
+      for (let i = startIndex; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        // Parse comma or semicolon separated values
+        const parts = line.split(/[;,]/).map(p => p.trim().replace(/^["']|["']$/g, '').trim());
+        if (parts.length >= 2) {
+          const name = parts[0];
+          const email = parts[1];
+          let teamName = parts[2] || "General";
+
+          if (name && isValidEmail(email)) {
+            let team = state.teams.find(t => t.name.toLowerCase() === teamName.toLowerCase());
+            if (!team && teamName.toLowerCase() !== "general" && teamName.toLowerCase() !== "default") {
+              const newTeamId = `team-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
+              team = {
+                id: newTeamId,
+                name: teamName,
+                color: "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')
+              };
+              state.teams.push(team);
+              saveTeams();
+              try {
+                await fetchApi("/api/teams", { method: "POST", body: JSON.stringify(team) });
+              } catch (_) {}
+            }
+
+            await addOrUpdateMember(name, email, team ? team.id : "default");
+            importedCount++;
+          } else {
+            skippedCount++;
+          }
+        } else {
+          skippedCount++;
+        }
+      }
+
+      saveMembers();
+      render();
+      if (importedCount > 0) {
+        setMessage(els.meetingMessage, `Successfully imported ${importedCount} member(s)${skippedCount > 0 ? ` (${skippedCount} invalid rows skipped)` : ''}.`, "good");
+      } else {
+        setMessage(els.meetingMessage, `No valid members found in CSV. Format: Name, Email, Team`, "bad");
+      }
+    } catch (err) {
+      console.error("CSV import error:", err);
+      setMessage(els.meetingMessage, "Failed to read CSV file: " + err.message, "bad");
+    } finally {
+      if (els.csvFileInput) els.csvFileInput.value = "";
+    }
+  };
+  reader.readAsText(file);
 }
 
 async function addOrUpdateMember(name, email, team = "default") {
@@ -1737,16 +2039,28 @@ function wireEvents() {
   
   // Add team button
   if (els.addTeamBtn) {
-    els.addTeamBtn.addEventListener("click", () => {
-      const name = prompt("Enter team name:");
-      if (name && name.trim()) {
-        addTeam(name.trim());
+    els.addTeamBtn.addEventListener("click", openTeamModal);
+  }
+
+  // CSV Import & Export buttons
+  if (els.importCsvButton && els.csvFileInput) {
+    els.importCsvButton.addEventListener("click", () => {
+      els.csvFileInput.click();
+    });
+    els.csvFileInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files[0]) {
+        importCsv(e.target.files[0]);
       }
     });
+  }
+
+  if (els.exportCsvButton) {
+    els.exportCsvButton.addEventListener("click", exportCsv);
   }
 }
 
 loadState();
+initTeamModal();
 wireEvents();
 render();
 syncFromBackend();

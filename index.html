@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Game Development Club Attendance</title>
-    <link rel="stylesheet" href="styles.css?v=5" />
+    <link rel="stylesheet" href="styles.css?v=6" />
   </head>
   <body>
     <canvas id="bg-canvas"></canvas>
@@ -219,6 +219,9 @@
           </form>
           <div class="member-tools">
             <button id="seedButton" class="ghost-action" type="button">Load 15 Placeholders</button>
+            <button id="importCsvButton" class="ghost-action" type="button">Import CSV</button>
+            <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display: none;" />
+            <button id="exportCsvButton" class="ghost-action" type="button">Export CSV</button>
             <button id="clearMembersButton" class="text-action" type="button">Clear Members</button>
           </div>
           <div id="memberList" class="member-list" aria-live="polite"></div>
@@ -331,7 +334,31 @@
       </article>
     </template>
 
-    <script src="background.js?v=5"></script>
-    <script src="app.js?v=5"></script>
+    <dialog id="teamModal" class="app-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Create New Team</h3>
+          <button id="closeTeamModalBtn" type="button" class="modal-close-btn" aria-label="Close dialog">✕</button>
+        </div>
+        <form id="teamModalForm">
+          <label>
+            Team Name
+            <input id="modalTeamName" type="text" placeholder="e.g. Engine Devs, 3D Artists" required autocomplete="off" />
+          </label>
+          <label style="margin-top: 16px;">
+            Team Accent Color
+            <div id="colorPickerGrid" class="color-picker-grid"></div>
+            <input id="modalTeamColor" type="hidden" value="#6366f1" />
+          </label>
+          <div class="modal-actions">
+            <button id="cancelTeamBtn" type="button" class="ghost-action">Cancel</button>
+            <button type="submit" class="primary-action">Create Team</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <script src="background.js?v=6"></script>
+    <script src="app.js?v=6"></script>
   </body>
 </html>
