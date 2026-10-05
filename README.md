@@ -41,22 +41,36 @@ A modern, feature-rich attendance console for the Game Development Club with gam
 
 ## Quick Start
 
-### Run With Auto Email
+### 1. Install Dependencies
+Before running the server for the first time, install the required packages:
 
-1. Double-click `start-mail-server.bat`, or run:
+```powershell
+npm install
+```
+
+### 2. Configure Environment (Optional)
+Copy `.env.example` to `.env` and configure your SMTP credentials if using auto-email. (Note: `.env` is ignored by Git to keep credentials secure):
+
+```powershell
+cp .env.example .env
+```
+
+### 3. Run the Server
+
+Double-click `start-mail-server.bat`, or run:
 
 ```powershell
 node server.js
 ```
 
-2. Open:
+Then open:
 
 ```text
 http://localhost:3000
 ```
 
-3. Fill **Auto Mail Engine** with the sender SMTP details and click **Save Sender**.
-4. Click **Test Sender**. When this passes, warning mails will send automatically.
+4. Fill **Auto Mail Engine** with the sender SMTP details and click **Save Sender** (or configure via `.env`).
+5. Click **Test Sender**. When this passes, warning mails will send automatically.
 
 The app can still be opened directly with `index.html`, but automatic email sending requires the local server.
 

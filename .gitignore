@@ -1,2 +1,6 @@
 .env
+node_modules/
+attendance.db
 *.log
+.DS_Store
+Thumbs.db

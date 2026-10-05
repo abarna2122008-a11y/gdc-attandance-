@@ -332,9 +332,16 @@ function calculatePoints(memberId, isPresent, wasEarly) {
 }
 
 function updateGamification(meetingRecord) {
-  const { present, absent, date } = meetingRecord;
+  const { present, absent } = meetingRecord;
   
-  present.forEach((member, index) => {
+  // Sort present members by check-in timestamp markedAt ascending for true Early Bird
+  const sortedPresent = [...present].sort((a, b) => {
+    if (!a.markedAt) return 1;
+    if (!b.markedAt) return -1;
+    return new Date(a.markedAt) - new Date(b.markedAt);
+  });
+  
+  sortedPresent.forEach((member, index) => {
     const memberId = member.id;
     if (!state.gamification.points[memberId]) {
       state.gamification.points[memberId] = 0;
@@ -343,8 +350,8 @@ function updateGamification(meetingRecord) {
       state.gamification.streaks[memberId] = 0;
     }
     
-    // Update points
-    const wasEarly = index < 3; // First 3 are early birds
+    // Update points: first 3 arrivals get early bird bonus
+    const wasEarly = index < 3;
     state.gamification.points[memberId] += calculatePoints(memberId, true, wasEarly);
     
     // Update streak
@@ -357,7 +364,7 @@ function updateGamification(meetingRecord) {
   absent.forEach((member) => {
     const memberId = member.id;
     if (state.gamification.streaks[memberId]) {
-      state.gamification.streaks[memberId] = 0; // Reset streak
+      state.gamification.streaks[memberId] = 0; // Reset streak on absence
     }
   });
   
@@ -382,7 +389,7 @@ function awardBadges(memberId) {
   if (streak >= BADGE_DEFINITIONS.streak_master.threshold) {
     earnedBadges.push("streak_master");
   }
-  if (totalMeetings > 0 && points / totalMeetings >= 8) {
+  if (totalMeetings >= 4 && (points / totalMeetings >= 7.5)) {
     earnedBadges.push("half_century");
   }
   if (points >= 50) {
@@ -428,19 +435,29 @@ function saveTeams() {
 }
 
 // ===== Team Management =====
-function addTeam(name, color) {
+async function addTeam(name, color) {
+  const teamId = `team-${Date.now()}`;
+  const teamColor = color || `hsl(${Math.random() * 360}, 60%, 40%)`;
   const team = {
-    id: `team-${Date.now()}`,
+    id: teamId,
     name: name.trim(),
-    color: color || `hsl(${Math.random() * 360}, 60%, 40%)`,
+    color: teamColor,
   };
   state.teams.push(team);
   saveTeams();
   renderTeams();
+
+  try {
+    await fetchApi("/api/teams", {
+      method: "POST",
+      body: JSON.stringify({ id: teamId, name: name.trim(), color: teamColor }),
+    });
+  } catch (_) {}
+
   return team;
 }
 
-function removeTeam(teamId) {
+async function removeTeam(teamId) {
   if (teamId === "default") return; // Can't remove default team
   state.teams = state.teams.filter(t => t.id !== teamId);
   state.members.forEach(m => {
@@ -449,6 +466,13 @@ function removeTeam(teamId) {
   saveTeams();
   saveMembers();
   renderTeams();
+
+  try {
+    await fetchApi("/api/teams/delete", {
+      method: "POST",
+      body: JSON.stringify({ id: teamId }),
+    });
+  } catch (_) {}
 }
 
 function getTeamName(teamId) {
@@ -849,10 +873,11 @@ function renderTeams() {
   }
 }
 
-function addOrUpdateMember(name, email, team = "default") {
+async function addOrUpdateMember(name, email, team = "default") {
   const cleanName = name.trim().replace(/\s+/g, " ");
   const cleanEmail = normalizeEmail(email);
   const existing = state.members.find((member) => normalizeEmail(member.email) === cleanEmail);
+  const memberId = existing ? existing.id : createId();
 
   if (existing) {
     existing.name = cleanName;
@@ -861,7 +886,7 @@ function addOrUpdateMember(name, email, team = "default") {
     setMessage(els.meetingMessage, `Updated ${cleanName} in the member vault.`, "good");
   } else {
     state.members.push({
-      id: createId(),
+      id: memberId,
       name: cleanName,
       email: cleanEmail,
       team: team || "default",
@@ -872,9 +897,18 @@ function addOrUpdateMember(name, email, team = "default") {
   state.members.sort((a, b) => a.name.localeCompare(b.name));
   saveMembers();
   render();
+
+  try {
+    await fetchApi("/api/members", {
+      method: "POST",
+      body: JSON.stringify({ id: memberId, name: cleanName, email: cleanEmail, team }),
+    });
+  } catch (err) {
+    console.warn("Backend sync notice for member save:", err.message);
+  }
 }
 
-function removeMember(memberId) {
+async function removeMember(memberId) {
   if (state.activeMeeting) {
     setMessage(els.meetingMessage, "Close the active meeting before removing members.", "bad");
     return;
@@ -890,9 +924,18 @@ function removeMember(memberId) {
   saveMembers();
   setMessage(els.meetingMessage, `Removed ${member.name}.`, "good");
   render();
+
+  try {
+    await fetchApi("/api/members/delete", {
+      method: "POST",
+      body: JSON.stringify({ id: memberId }),
+    });
+  } catch (err) {
+    console.warn("Backend sync notice for member delete:", err.message);
+  }
 }
 
-function startMeeting(event) {
+async function startMeeting(event) {
   event.preventDefault();
 
   if (state.activeMeeting) {
@@ -907,14 +950,16 @@ function startMeeting(event) {
 
   const date = els.meetingDate.value || todayValue();
   const title = els.meetingTitle.value.trim() || `${formatDate(date)} GDC Meeting`;
+  const meetingId = `meeting-${Date.now()}`;
+  const qrToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
   state.activeMeeting = {
-    id: createId(),
+    id: meetingId,
     title,
     date,
     startedAt: new Date().toISOString(),
     attendance: {},
-    qrToken: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
+    qrToken,
   };
 
   state.latestWarnings = null;
@@ -922,20 +967,46 @@ function startMeeting(event) {
   saveWarnings();
   setMessage(els.meetingMessage, `${title} is live. Members can be marked present now.`, "good");
   render();
+
+  try {
+    await fetchApi("/api/meetings/start", {
+      method: "POST",
+      body: JSON.stringify({ id: meetingId, title, date }),
+    });
+  } catch (err) {
+    console.warn("Backend meeting start notice:", err.message);
+  }
 }
 
 async function closeMeeting() {
   if (!state.activeMeeting) return;
 
-  const absent = getAbsentMembers().map(snapshotMember);
-  const present = getPresentMembers().map(snapshotMember);
-  const meetingRecord = {
-    ...state.activeMeeting,
-    closedAt: new Date().toISOString(),
-    totalMembers: state.members.length,
-    present,
-    absent,
-  };
+  let meetingRecord = null;
+  let absent = [];
+
+  try {
+    const res = await fetchApi("/api/meetings/close", { method: "POST" });
+    if (res.ok) {
+      const result = await res.json();
+      meetingRecord = result.meetingRecord;
+      absent = result.absentees || [];
+    }
+  } catch (err) {
+    console.warn("Backend closeMeeting offline, falling back to local:", err.message);
+  }
+
+  if (!meetingRecord) {
+    absent = getAbsentMembers().map(snapshotMember);
+    const present = getPresentMembers().map(snapshotMember);
+    meetingRecord = {
+      ...state.activeMeeting,
+      closedAt: new Date().toISOString(),
+      totalMembers: state.members.length,
+      present,
+      absent,
+    };
+    updateGamification(meetingRecord);
+  }
 
   state.history.unshift(meetingRecord);
   state.history = state.history.slice(0, 30);
@@ -944,9 +1015,6 @@ async function closeMeeting() {
     absentees: absent,
   };
   state.activeMeeting = null;
-
-  // Update gamification
-  updateGamification(meetingRecord);
 
   saveMeeting();
   saveHistory();
@@ -959,6 +1027,10 @@ async function closeMeeting() {
       : "Meeting closed with full attendance.",
     absent.length ? "bad" : "good",
   );
+  render();
+
+  // Re-sync bootstrap state to ensure server-calculated badges/points are reflected
+  syncFromBackend();
   render();
 
   if (absent.length) {
@@ -1040,7 +1112,7 @@ function renderQRCode() {
   }
 }
 
-function markPresent(member) {
+async function markPresent(member) {
   if (!state.activeMeeting) {
     setMessage(els.attendanceMessage, "Start the meeting first.", "bad");
     return;
@@ -1051,10 +1123,27 @@ function markPresent(member) {
     return;
   }
 
-  state.activeMeeting.attendance[member.id] = new Date().toISOString();
+  const now = new Date().toISOString();
+  state.activeMeeting.attendance[member.id] = now;
   saveMeeting();
   setMessage(els.attendanceMessage, `${member.name} marked present.`, "good");
   render();
+
+  try {
+    const res = await fetchApi("/api/attendance/mark", {
+      method: "POST",
+      body: JSON.stringify({ memberId: member.id, name: member.name, email: member.email }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.markedAt) {
+        state.activeMeeting.attendance[member.id] = data.markedAt;
+        saveMeeting();
+      }
+    }
+  } catch (err) {
+    console.warn("Backend attendance mark notice:", err.message);
+  }
 }
 
 async function fetchApi(path, options = {}) {
@@ -1427,7 +1516,7 @@ async function copyLatestReport() {
   setMessage(els.meetingMessage, "Copied the latest meeting report.", "good");
 }
 
-function seedMembers() {
+async function seedMembers() {
   if (state.activeMeeting) {
     setMessage(els.meetingMessage, "Close the active meeting before loading placeholders.", "bad");
     return;
@@ -1438,6 +1527,20 @@ function seedMembers() {
     window.confirm("Replace the current member vault with 15 editable placeholder members?");
   if (!confirmed) return;
 
+  try {
+    const res = await fetchApi("/api/members/seed", { method: "POST" });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.members) {
+        state.members = data.members;
+        saveMembers();
+        setMessage(els.meetingMessage, "Loaded 15 placeholders into SQLite & local vault.", "good");
+        render();
+        return;
+      }
+    }
+  } catch (_) {}
+
   state.members = placeholderMembers.map((member) => ({
     ...member,
     id: createId(),
@@ -1447,25 +1550,29 @@ function seedMembers() {
   render();
 }
 
-function clearMembers() {
+async function clearMembers() {
   if (state.activeMeeting) {
     setMessage(els.meetingMessage, "Close the active meeting before clearing members.", "bad");
     return;
   }
 
   if (!state.members.length) return;
-  const confirmed = window.confirm("Clear all saved members from this device?");
+  const confirmed = window.confirm("Clear all saved members from database and this device?");
   if (!confirmed) return;
 
   state.members = [];
   saveMembers();
   setMessage(els.meetingMessage, "Member vault cleared.", "good");
   render();
+
+  try {
+    await fetchApi("/api/members/clear", { method: "POST" });
+  } catch (_) {}
 }
 
-function clearHistory() {
+async function clearHistory() {
   if (!state.history.length) return;
-  const confirmed = window.confirm("Clear meeting history from this device?");
+  const confirmed = window.confirm("Clear meeting history from database and this device?");
   if (!confirmed) return;
 
   state.history = [];
@@ -1474,6 +1581,48 @@ function clearHistory() {
   saveWarnings();
   setMessage(els.meetingMessage, "Meeting history cleared.", "good");
   render();
+
+  try {
+    await fetchApi("/api/meetings/clear-history", { method: "POST" });
+  } catch (_) {}
+}
+
+async function syncFromBackend() {
+  try {
+    const res = await fetchApi("/api/bootstrap", { method: "GET" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data) return;
+
+    if (Array.isArray(data.teams) && data.teams.length) {
+      state.teams = data.teams;
+      saveTeams();
+    }
+
+    if (Array.isArray(data.members)) {
+      state.members = data.members;
+      saveMembers();
+    }
+
+    if (data.activeMeeting !== undefined) {
+      state.activeMeeting = data.activeMeeting;
+      saveMeeting();
+    }
+
+    if (Array.isArray(data.history)) {
+      state.history = data.history;
+      saveHistory();
+    }
+
+    if (data.gamification) {
+      state.gamification = data.gamification;
+      saveGamification();
+    }
+
+    render();
+  } catch (err) {
+    console.warn("Bootstrap sync notice:", err.message);
+  }
 }
 
 function wireEvents() {
@@ -1558,6 +1707,7 @@ function wireEvents() {
 loadState();
 wireEvents();
 render();
+syncFromBackend();
 loadMailConfig();
 toggleMailSettings(false);
 checkMailServer(false);
