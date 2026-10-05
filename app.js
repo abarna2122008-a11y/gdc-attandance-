@@ -105,6 +105,10 @@ const els = {
   importCsvButton: document.querySelector("#importCsvButton"),
   csvFileInput: document.querySelector("#csvFileInput"),
   exportCsvButton: document.querySelector("#exportCsvButton"),
+  rosterSearchInput: document.querySelector("#rosterSearchInput"),
+  rosterTeamTabs: document.querySelector("#rosterTeamTabs"),
+  markAllPresentBtn: document.querySelector("#markAllPresentBtn"),
+  unmarkAllAttendanceBtn: document.querySelector("#unmarkAllAttendanceBtn"),
 };
 
 const API_BASE = window.location.protocol === "file:" ? "http://localhost:3000" : "";
@@ -662,31 +666,126 @@ function renderMembers() {
   });
 }
 
+let currentRosterTab = "all";
+let currentRosterSearch = "";
+
 function renderRoster() {
+  if (!els.rosterList) return;
   els.rosterList.textContent = "";
 
   if (!state.members.length) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = "The live roster appears after members are saved.";
+    empty.textContent = "The live roster appears after members are saved in Member Vault.";
     els.rosterList.append(empty);
     return;
   }
 
+  // Render team filter tabs
+  if (els.rosterTeamTabs) {
+    els.rosterTeamTabs.innerHTML = "";
+    
+    // All tab
+    const allBtn = document.createElement("button");
+    allBtn.type = "button";
+    allBtn.className = `roster-tab-btn ${currentRosterTab === "all" ? "active" : ""}`;
+    allBtn.textContent = `All (${state.members.length})`;
+    allBtn.addEventListener("click", () => {
+      currentRosterTab = "all";
+      renderRoster();
+    });
+    els.rosterTeamTabs.appendChild(allBtn);
+
+    state.teams.forEach(team => {
+      const count = state.members.filter(m => m.team === team.id).length;
+      if (count > 0 || team.id !== "default") {
+        const tabBtn = document.createElement("button");
+        tabBtn.type = "button";
+        tabBtn.className = `roster-tab-btn ${currentRosterTab === team.id ? "active" : ""}`;
+        tabBtn.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${team.color};margin-right:4px;"></span>${team.name} (${count})`;
+        tabBtn.addEventListener("click", () => {
+          currentRosterTab = team.id;
+          renderRoster();
+        });
+        els.rosterTeamTabs.appendChild(tabBtn);
+      }
+    });
+  }
+
   const attendance = getAttendanceMap();
-  state.members.forEach((member) => {
+  const search = (currentRosterSearch || "").trim().toLowerCase();
+
+  const filteredMembers = state.members.filter(member => {
+    if (currentRosterTab !== "all" && member.team !== currentRosterTab) {
+      return false;
+    }
+    if (search) {
+      const teamName = getTeamName(member.team).toLowerCase();
+      const matchName = member.name.toLowerCase().includes(search);
+      const matchEmail = member.email.toLowerCase().includes(search);
+      const matchTeam = teamName.includes(search);
+      return matchName || matchEmail || matchTeam;
+    }
+    return true;
+  });
+
+  if (!filteredMembers.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = search ? `No members match "${search}".` : "No members in this team.";
+    els.rosterList.append(empty);
+    return;
+  }
+
+  filteredMembers.forEach((member) => {
     const row = els.rosterTemplate.content.firstElementChild.cloneNode(true);
     const isPresent = Boolean(attendance[member.id]);
-    row.classList.toggle("is-present", isPresent);
-    row.querySelector("strong").textContent = member.name;
-    row.querySelector("span").textContent = isPresent
-      ? `Marked at ${formatTime(attendance[member.id])}`
-      : member.email;
+    const team = state.teams.find(t => t.id === member.team);
+    const teamName = team ? team.name : "General";
+    const teamColor = team ? team.color : "#6366f1";
 
-    const button = row.querySelector("button");
-    button.textContent = isPresent ? "Present" : "Mark";
-    button.disabled = !state.activeMeeting || isPresent;
-    button.addEventListener("click", () => markPresent(member));
+    row.classList.toggle("is-present", isPresent);
+
+    const checkbox = row.querySelector(".roster-checkbox");
+    if (checkbox) {
+      checkbox.checked = isPresent;
+      checkbox.disabled = !state.activeMeeting;
+      checkbox.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
+      checkbox.addEventListener("change", () => {
+        toggleAttendance(member);
+      });
+    }
+
+    const nameEl = row.querySelector(".roster-name");
+    if (nameEl) nameEl.textContent = member.name;
+
+    const teamBadge = row.querySelector(".roster-team-badge");
+    if (teamBadge) {
+      teamBadge.textContent = teamName;
+      teamBadge.style.backgroundColor = `${teamColor}22`;
+      teamBadge.style.color = teamColor;
+      teamBadge.style.border = `1px solid ${teamColor}44`;
+    }
+
+    const subtextEl = row.querySelector(".roster-subtext");
+    if (subtextEl) {
+      subtextEl.textContent = isPresent
+        ? `✓ Marked present at ${formatTime(attendance[member.id])}`
+        : member.email;
+    }
+
+    const statusText = row.querySelector(".status-indicator-text");
+    if (statusText) {
+      statusText.textContent = isPresent ? "Present" : "Absent";
+    }
+
+    // Clicking anywhere on the row toggles attendance
+    row.addEventListener("click", () => {
+      toggleAttendance(member);
+    });
+
     els.rosterList.append(row);
   });
 }
@@ -1437,38 +1536,104 @@ async function renderQRCode() {
   }
 }
 
-async function markPresent(member) {
+async function toggleAttendance(member) {
   if (!state.activeMeeting) {
-    setMessage(els.attendanceMessage, "Start the meeting first.", "bad");
+    setMessage(els.meetingMessage, "Start a meeting in 'Meeting Gate' before marking attendance.", "bad");
     return;
   }
 
-  if (state.activeMeeting.attendance[member.id]) {
-    setMessage(els.attendanceMessage, `${member.name} is already marked present.`, "good");
+  const isAlreadyPresent = Boolean(state.activeMeeting.attendance[member.id]);
+
+  if (isAlreadyPresent) {
+    delete state.activeMeeting.attendance[member.id];
+    saveMeeting();
+    setMessage(els.meetingMessage, `Unmarked ${member.name}.`);
+    render();
+
+    try {
+      await fetchApi("/api/attendance/unmark", {
+        method: "POST",
+        body: JSON.stringify({ memberId: member.id, email: member.email }),
+      });
+    } catch (err) {
+      console.warn("Backend unmark notice:", err.message);
+    }
+  } else {
+    const now = new Date().toISOString();
+    state.activeMeeting.attendance[member.id] = now;
+    saveMeeting();
+    setMessage(els.meetingMessage, `Marked ${member.name} present!`, "good");
+    render();
+
+    try {
+      const res = await fetchApi("/api/attendance/mark", {
+        method: "POST",
+        body: JSON.stringify({ memberId: member.id, name: member.name, email: member.email }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.markedAt) {
+          state.activeMeeting.attendance[member.id] = data.markedAt;
+          saveMeeting();
+        }
+      }
+    } catch (err) {
+      console.warn("Backend attendance mark notice:", err.message);
+    }
+  }
+}
+
+async function markAllPresent() {
+  if (!state.activeMeeting) {
+    setMessage(els.meetingMessage, "Start a meeting first.", "bad");
     return;
   }
 
   const now = new Date().toISOString();
-  state.activeMeeting.attendance[member.id] = now;
+  state.members.forEach(m => {
+    state.activeMeeting.attendance[m.id] = now;
+  });
   saveMeeting();
-  setMessage(els.attendanceMessage, `${member.name} marked present.`, "good");
+  setMessage(els.meetingMessage, `Marked all ${state.members.length} members present!`, "good");
   render();
 
   try {
-    const res = await fetchApi("/api/attendance/mark", {
+    await fetchApi("/api/attendance/bulk", {
       method: "POST",
-      body: JSON.stringify({ memberId: member.id, name: member.name, email: member.email }),
+      body: JSON.stringify({ action: "mark_all" }),
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.markedAt) {
-        state.activeMeeting.attendance[member.id] = data.markedAt;
-        saveMeeting();
-      }
-    }
   } catch (err) {
-    console.warn("Backend attendance mark notice:", err.message);
+    console.warn("Backend mark_all notice:", err.message);
   }
+}
+
+async function unmarkAllAttendance() {
+  if (!state.activeMeeting) {
+    setMessage(els.meetingMessage, "Start a meeting first.", "bad");
+    return;
+  }
+
+  if (!confirm("Reset all attendance for this active meeting back to absent?")) {
+    return;
+  }
+
+  state.activeMeeting.attendance = {};
+  saveMeeting();
+  setMessage(els.meetingMessage, "Reset all attendance to absent.");
+  render();
+
+  try {
+    await fetchApi("/api/attendance/bulk", {
+      method: "POST",
+      body: JSON.stringify({ action: "unmark_all" }),
+    });
+  } catch (err) {
+    console.warn("Backend unmark_all notice:", err.message);
+  }
+}
+
+async function markPresent(member) {
+  return toggleAttendance(member);
 }
 
 async function fetchApi(path, options = {}) {
@@ -2056,6 +2221,22 @@ function wireEvents() {
 
   if (els.exportCsvButton) {
     els.exportCsvButton.addEventListener("click", exportCsv);
+  }
+
+  // Live Roster Search & Bulk Actions
+  if (els.rosterSearchInput) {
+    els.rosterSearchInput.addEventListener("input", (e) => {
+      currentRosterSearch = e.target.value;
+      renderRoster();
+    });
+  }
+
+  if (els.markAllPresentBtn) {
+    els.markAllPresentBtn.addEventListener("click", markAllPresent);
+  }
+
+  if (els.unmarkAllAttendanceBtn) {
+    els.unmarkAllAttendanceBtn.addEventListener("click", unmarkAllAttendance);
   }
 }
 

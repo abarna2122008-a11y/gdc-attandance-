@@ -474,6 +474,62 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (req.method === "POST" && parsedUrl.pathname === "/api/attendance/unmark") {
+    const body = await readBody(req);
+    if (body.__parseError) return sendJson(res, 400, { error: "Invalid JSON body" });
+
+    const { memberId, email } = body;
+    const active = await db.getAsync("SELECT id FROM meetings WHERE status = 'active' LIMIT 1");
+    if (!active) {
+      return sendJson(res, 400, { error: "No active meeting to update attendance." });
+    }
+
+    try {
+      await db.runAsync(`
+        DELETE FROM attendance 
+        WHERE meeting_id = ? AND (member_id = ? OR email = ?)
+      `, [active.id, memberId || "", (email || "").toLowerCase()]);
+
+      return sendJson(res, 200, { success: true, unmarked: true, memberId });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
+
+  if (req.method === "POST" && parsedUrl.pathname === "/api/attendance/bulk") {
+    const body = await readBody(req);
+    if (body.__parseError) return sendJson(res, 400, { error: "Invalid JSON body" });
+
+    const { action } = body; // "mark_all" or "unmark_all"
+    const active = await db.getAsync("SELECT id FROM meetings WHERE status = 'active' LIMIT 1");
+    if (!active) {
+      return sendJson(res, 400, { error: "No active meeting to update attendance." });
+    }
+
+    try {
+      if (action === "unmark_all") {
+        await db.runAsync("DELETE FROM attendance WHERE meeting_id = ?", [active.id]);
+        return sendJson(res, 200, { success: true, action: "unmark_all" });
+      }
+
+      if (action === "mark_all") {
+        const members = await db.allAsync("SELECT * FROM members");
+        const now = new Date().toISOString();
+        for (const m of members) {
+          await db.runAsync(`
+            INSERT OR IGNORE INTO attendance (meeting_id, member_id, student_name, email, team_id, status, marked_at)
+            VALUES (?, ?, ?, ?, ?, 'present', ?)
+          `, [active.id, m.id, m.name, m.email, m.team_id, now]);
+        }
+        return sendJson(res, 200, { success: true, action: "mark_all", count: members.length });
+      }
+
+      return sendJson(res, 400, { error: "Unknown action." });
+    } catch (err) {
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
+
   if (req.method === "POST" && parsedUrl.pathname === "/api/meetings/close") {
     try {
       const active = await db.getAsync("SELECT * FROM meetings WHERE status = 'active' LIMIT 1");

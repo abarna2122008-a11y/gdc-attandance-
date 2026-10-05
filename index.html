@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Game Development Club Attendance</title>
-    <link rel="stylesheet" href="styles.css?v=6" />
+    <link rel="stylesheet" href="styles.css?v=7" />
   </head>
   <body>
     <canvas id="bg-canvas"></canvas>
@@ -231,10 +231,24 @@
           <div class="panel-heading">
             <div>
               <p class="section-kicker">04</p>
-              <h2>Live Roster</h2>
+              <h2>Live Roster & Attendance</h2>
             </div>
             <span id="rosterMode" class="small-pill">Locked</span>
           </div>
+
+          <div class="roster-toolbar">
+            <div class="roster-search-wrapper">
+              <input id="rosterSearchInput" type="text" placeholder="🔍 Quick search member name, email or team..." autocomplete="off" />
+            </div>
+            <div class="roster-actions">
+              <div id="rosterTeamTabs" class="roster-team-tabs"></div>
+              <div class="roster-quick-buttons">
+                <button id="markAllPresentBtn" class="ghost-action" type="button" title="Mark all filtered members present">Mark All</button>
+                <button id="unmarkAllAttendanceBtn" class="text-action" type="button" title="Reset all to absent">Reset</button>
+              </div>
+            </div>
+          </div>
+
           <div id="rosterList" class="roster-list" aria-live="polite"></div>
         </div>
       </section>
@@ -306,13 +320,21 @@
     </template>
 
     <template id="rosterTemplate">
-      <article class="roster-row">
-        <div class="roster-status-dot"></div>
-        <div>
-          <strong></strong>
-          <span></span>
+      <article class="roster-row" role="button" tabindex="0">
+        <label class="roster-checkbox-wrapper">
+          <input type="checkbox" class="roster-checkbox" />
+        </label>
+        <div class="roster-info">
+          <div class="roster-name-line">
+            <strong class="roster-name"></strong>
+            <span class="roster-team-badge"></span>
+          </div>
+          <span class="roster-subtext"></span>
         </div>
-        <button type="button" class="ghost-action">Mark</button>
+        <div class="roster-status-badge">
+          <span class="status-indicator-dot"></span>
+          <span class="status-indicator-text">Absent</span>
+        </div>
       </article>
     </template>
 
@@ -358,7 +380,7 @@
       </div>
     </dialog>
 
-    <script src="background.js?v=6"></script>
-    <script src="app.js?v=6"></script>
+    <script src="background.js?v=7"></script>
+    <script src="app.js?v=7"></script>
   </body>
 </html>
